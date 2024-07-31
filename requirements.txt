@@ -1,4 +1,4 @@
-transformers==4.36.2
+transformers==4.38.0
 datasets==2.18.0
 soundfile==0.12.1
 librosa==0.10.1
