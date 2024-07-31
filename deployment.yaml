@@ -69,9 +69,83 @@ Parameters:
     Description: Maximum number of CPUs in the default compute environment. Should be >= than MinCpus
     Default: 20000
     MinValue: 0
+  EBSBootSize:
+    Type: Number
+    Default: 50
+    Description: Size in GiB of EBS root volume
 
 Resources:
-# Batch job queue
+  BatchLaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateData:
+          BlockDeviceMappings:
+          - DeviceName: '/dev/xvda'
+            Ebs:
+              DeleteOnTermination: true
+              Encrypted: false
+              Iops: 3000
+              VolumeSize: !Ref EBSBootSize
+              VolumeType: 'gp3'
+          UserData:
+            Fn::Base64:
+              !Sub |
+                MIME-Version: 1.0
+                Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+                --==MYBOUNDARY==
+                Content-Type: text/x-shellscript; charset="us-ascii"
+
+                #!/bin/bash
+
+                # Configure Neuron Monitor
+                cat > /tmp/monitor.conf << EOF
+                {
+                  "period": "1s",
+                  "neuron_runtimes": [
+                    {
+                      "tag_filter": ".*",
+                      "metrics": [
+                        {
+                          "type": "neuroncore_counters"
+                        },
+                        {
+                          "type": "memory_used"
+                        },
+                        {
+                          "type": "neuron_runtime_vcpu_usage"
+                        },
+                        {
+                          "type": "execution_stats"
+                        }
+                      ]
+                    }
+                  ],
+                  "system_metrics": [
+                    {
+                      "type": "vcpu_usage"
+                    },
+                    {
+                      "type": "memory_info"
+                    },
+                    {
+                       "period": "2s",
+                       "type": "neuron_hw_counters"
+                    }
+                  ]
+                }
+                EOF
+
+                # Install pip and boto3
+                yum install pip -y && pip install boto3
+
+                # Run Neuron Monitor and pipe the output to Neuron Monitor CloudWatch
+                /opt/aws/neuron/bin/neuron-monitor -c /tmp/monitor.conf \
+                | /opt/aws/neuron/bin/neuron-monitor-cloudwatch.py \
+                --namespace neuron_monitor -d instance_id --region us-east-1 &
+
+                --==MYBOUNDARY==--
+
   DefaultComputeEnv:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
@@ -81,11 +155,14 @@ Resources:
       State: ENABLED
       ComputeResources:
         AllocationStrategy: BEST_FIT_PROGRESSIVE
+        LaunchTemplate:
+          LaunchTemplateId: !Ref BatchLaunchTemplate
+          Version: $Latest
         UpdateToLatestImageVersion: true #use the enhanced updating of compute environments to update AMIs
         InstanceRole: !GetAtt ECSInstanceProfile.Arn
         SecurityGroupIds: !Ref SGIds
         InstanceTypes:
-          - inf2.xlarge
+          - inf2.8xlarge
         MinvCpus: !Ref DefaultCEMinvCpus
         MaxvCpus: !Ref DefaultCEMaxvCpus
         Subnets: !Ref SubnetIds
@@ -135,6 +212,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
       - arn:aws:iam::aws:policy/AWSBatchFullAccess
+      - arn:aws:iam::aws:policy/CloudWatchFullAccessV2
 
   ECSInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -156,9 +234,9 @@ Resources:
             Version: latest
         ResourceRequirements:
         - Type: VCPU
-          Value: '4'
+          Value: '32'
         - Type: MEMORY
-          Value: '15000'
+          Value: '125000'
         LinuxParameters:
           Devices:
           - HostPath: /dev/neuron0
@@ -167,16 +245,26 @@ Resources:
             - READ
             - WRITE
             - MKNOD
+        Environment:
+          - Name: OUTPUT_BUCKET_NAME
+            Value: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-outbucket
+          - Name: OUTPUT_FILE_PREFIX
+            Value: 'transcription-output/'
+          - Name: MODEL_BUCKET_NAME
+            Value: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-inbucket
+          - Name: MODEL_ENCODER_S3_KEY
+            Value: 'model-artifacts/whisper_large-v3_1_neuron_encoder.pt'
+          - Name: MODEL_DECODER_S3_KEY
+            Value: 'model-artifacts/whisper_large-v3_1_448_neuron_decoder.pt'
         Command:
         - python3
-        - test.py
+        - inference.py
         - Ref::S3bucket
         - Ref::S3key
       Timeout:
         AttemptDurationSeconds: 3600
       RetryStrategy:
         Attempts: 2
-        
         
 # S3 Gateway 
   S3GatewayEndpoint:
@@ -198,7 +286,7 @@ Resources:
           - id: W51
             reason: "Block Public Access settings are turned on for this demo"
     Properties:
-      BucketName: !Sub ${AWS::StackName}-${AWS::AccountId}-inputbucket
+      BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-inbucket
       LoggingConfiguration:
         DestinationBucketName: !Ref S3BucketLogs
         LogFilePrefix: "Inference-input-bucket/"
@@ -210,7 +298,7 @@ Resources:
       NotificationConfiguration:
         EventBridgeConfiguration:
           EventBridgeEnabled: true
-  ResultBucket:
+  OutputBucket:
     Type: 'AWS::S3::Bucket'
     Metadata:
       cfn_nag:
@@ -220,10 +308,10 @@ Resources:
           - id: W51
             reason: "Block Public Access settings are turned on for this demo"
     Properties:
-      BucketName: !Sub ${AWS::StackName}-${AWS::AccountId}-resultbucket
+      BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-outbucket
       LoggingConfiguration:
         DestinationBucketName: !Ref S3BucketLogs
-        LogFilePrefix: "Inference-result-bucket/"
+        LogFilePrefix: "Inference-output-bucket/"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -241,7 +329,7 @@ Resources:
           - id: W51
             reason: "Block Public Access settings are turned on for this demo"
     Properties:
-      BucketName: !Sub ${AWS::StackName}-${AWS::AccountId}-logbucket
+      BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-logbucket
       AccessControl: LogDeliveryWrite
       LifecycleConfiguration:
         Rules:
@@ -295,7 +383,7 @@ Resources:
               - !Ref InputBucket
           object:
             key:
-              - prefix: media/
+              - prefix: audio-input/
             #  - suffix: .csv  It is not supported now to have both rules
       State: ENABLED
       Targets:
@@ -329,6 +417,6 @@ Outputs:
   InputBucket:
     Description: 'Input bucket name'
     Value: !Ref InputBucket
-  ResultBucket:
-    Description: 'Result bucket name'
-    Value: !Ref ResultBucket
+  OutputBucket:
+    Description: 'Output bucket name'
+    Value: !Ref OutputBucket

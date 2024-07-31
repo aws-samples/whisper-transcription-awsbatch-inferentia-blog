@@ -4,10 +4,12 @@ RUN mkdir -p /app
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
-COPY test.py test.py
+COPY inference.py inference.py
 
 RUN pip install -U --no-cache-dir -r requirements.txt
 # Exit container after the job is done
 RUN sed -i '/prevent docker exit/ {n; s/./# &/;}' /usr/local/bin/dockerd-entrypoint.py
 
-CMD ["python3", "test.py"]
+# For a quick test
+# COPY test.py test.py
+# CMD ["python3", "test.py"]

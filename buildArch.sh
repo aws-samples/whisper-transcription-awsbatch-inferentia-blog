@@ -19,7 +19,7 @@
 
 # This script will deploy the infrastructure for this project
 
-project=inf-demo
+project=awsbatch-audio-transcription
 
 ##### Gather necessary information and save in a file for later use #####
 envFileName=~/envVars-$AWS_REGION
@@ -48,5 +48,5 @@ echo "export RouteTable_IDS=${RouteTable_IDS}" >> $envFileName
 
 
 ##### Provision infrastructure #####
-aws cloudformation deploy --stack-name $project-batch --template-file ./deployment.yaml --capabilities CAPABILITY_IAM \
+aws cloudformation deploy --stack-name $project --template-file ./deployment.yaml --capabilities CAPABILITY_IAM \
 --region ${AWS_REGION} --parameter-overrides VPCId=${VPC_ID} SubnetIds="${SUBNET_IDS}" SGIds="${SecurityGroup_IDS}" RTIds="${RouteTable_IDS}"
