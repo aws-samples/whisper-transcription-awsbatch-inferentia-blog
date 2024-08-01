@@ -210,9 +210,19 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-      - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      - arn:aws:iam::aws:policy/AWSBatchFullAccess
-      - arn:aws:iam::aws:policy/CloudWatchFullAccessV2
+      Policies:
+        - PolicyName: "CustomizedECSInstancePolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "cloudwatch:PutMetricData"
+                  - "cloudwatch:GetMetricData"
+                  - "cloudwatch:ListMetrics"
+                Resource: "*"
 
   ECSInstanceProfile:
     Type: AWS::IAM::InstanceProfile
