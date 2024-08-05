@@ -210,11 +210,9 @@ Amazon EventBridge captures all Amazon S3 events and the Rule filters the events
 #### Step 3. Select target(s)
 Next, we select the target. Under Target types, choose AWS service. Choose Batch job queue as the target.
 
-![eventbridge-3](https://github.com/user-attachments/assets/95f141bb-7be4-4b87-8ace-587a517a5802)
+<p align="center"><img src="https://github.com/user-attachments/assets/5daf63a2-83ef-4675-a8e9-d8dca688a386" \></p>
 
 After selecting Batch job queue, you’ll be prompted to specify the Amazon Resource Names (ARNs) for the AWS Batch Job queue and the Job definition.
-
-![eventbridge-3-2](https://github.com/user-attachments/assets/90df6dc6-7e91-419f-8310-d81f6815263d)
 
 #### Step 4. Configure tags – optional
 
@@ -226,7 +224,9 @@ In the last step, you’ll be able to review the rule details, event pattern, ta
 
 Now that we’ve fully configured our event-driven audio transcription pipeline, we’re ready to test it.
 
-### 
+## Test the solution
+
+You're ready to test the solution. Upload some audio files to your designated S3 input location and validate the transcriptions are being outputted to the S3 output location.
 
 ## Security
 
