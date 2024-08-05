@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/9cea35bc-582b-4502-a24d-4595c10154ce)# Whisper audio transcription powered by AWS Batch and AWS Inferentia
+# Whisper audio transcription powered by AWS Batch and AWS Inferentia
 
 OpenAI's Whisper model is a highly accurate automatic speech recognition (ASR) model that is based on the transformer architecture. It is released under MIT license and available for commercial use. While Amazon SageMaker offers a robust platform for hosting the Whisper model, running a SageMaker inference endpoint continuously can incur unnecessary costs especially if the endpoint isn’t fully utilized and less frequent batch processing is sufficient. If you are looking to host a Whisper model on an Amazon SageMaker inference endpoint, please refer to the blog post on that topic, Host the Whisper Model on Amazon SageMaker: Exploring Inference Options.
 
