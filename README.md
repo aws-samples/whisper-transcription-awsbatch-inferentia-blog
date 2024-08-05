@@ -46,11 +46,10 @@ Next, we will demonstrate how to implement this solution.
 
 ### Choose AMI
 
-Choose AMI
-
 The AMI we will choose for our AWS Batch compute environment will be an Amazon Linux AMI that is ECS-optimized. This AMI has Neuron drivers pre-installed to support AWS Inferentia2 instances. Remember that AMIs are region-specific, and since we are using the us-east-1 Region, we will use this community AMI published by AWS: ami-07979ad4c774a29ab. We can search and find this AMI in the Application and OS Images (Amazon Machine Image) catalog search in the Amazon EC2 Launch an instance screen (shown below).
 
-![AMI](https://github.com/user-attachments/assets/c0685f8c-b394-488e-8051-adc4c496d5fe)
+<p align="center"><img src="https://github.com/user-attachments/assets/4778d09f-9a0f-49c8-9632-2babe5c0f29f" width=auto height=auto />
+</p>
 
 ### Build the docker image
 
@@ -81,7 +80,8 @@ docker build --no-cache -t whisper:latest .
 
 Your output should look like this.
 
-![dockerbuild](https://github.com/user-attachments/assets/cf26de60-a058-4361-9db3-5125a5e5c69a)
+<p align="center"><img src="https://github.com/user-attachments/assets/69f86d6f-a5e4-41e9-ba66-cabc26096017" width=auto height=auto/>
+</p>
 
 ### Push image to AWS ECR
 
@@ -111,14 +111,17 @@ AWS Batch provides a Wizard (accessible from the menu in the upper left) that st
 
 Choose Amazon Elastic Compute Cloud (Amazon EC2) and click Next.
 
-![awsbatch-1](https://github.com/user-attachments/assets/abc85c42-f158-496e-bbb5-0b953988ff06)
+<p align="center"><img src="https://github.com/user-attachments/assets/b56aca61-e021-4415-9a36-f4e09894847a" width=auto height=auto />
+</p>
 
 #### Step 2. Create a compute environment
 
 In the Create a compute environment section, choose a Name and Instance role. Choose the 
 minimum and maximum vCPUs. Under Allowed instance types, clear the default and select inf2.8xlarge.
 
-![awsbatch-2](https://github.com/user-attachments/assets/3d245655-1266-4bc8-8d11-1405e667ec5b)
+<p align="center"><img src="https://github.com/user-attachments/assets/053e2e91-0cb0-4844-92ae-039007a94603" width=auto height=auto />
+</p>
+
 
 The inf2.8xlarge instance has 32 vCPUs, so setting the maximum vCPU to a multiple of 32 number will determine the throughput capacity of the AWS Batch job queue—or how many compute environments AWS Batch will launch to transcribe multiple audio files concurrently. For our experiment we will choose to process 5 audio files concurrently, so we will set the maximum vCPUs at 160. Once 5 compute environments are launched, jobs will simply wait in queue until a compute environment becomes available.
 
@@ -128,17 +131,23 @@ In the Network configuration, choose the Amazon Virtual Private Cloud (Amazon VP
 
 In the Job queue configuration section, create a Name for the Job queue and set the Priority. Job queues with a higher integer value for priority are given preference for compute environments. Click Next.
 
+<p align="center"><img src="https://github.com/user-attachments/assets/fcbff5d7-89cb-48a5-8ee9-34b91de3d4e0">
+</p>
+
+
 #### Step 4. Create a job definition
 
 Choose a Name for the job definition. If desired, set an Execution timeout greater than 60 seconds to terminate unfinished jobs.
 
 In the Container configuration section, specify the repository URL for the Docker image that we built and uploaded to Amazon ECR in earlier steps.
 
-![awsbatch-4-1](https://github.com/user-attachments/assets/33f46683-0210-4160-b624-d9a635839c7d)
+<p align="center"><img src="https://github.com/user-attachments/assets/fc291f71-e688-4973-9398-a1cc0541221f">
+</p>
 
 In the Environment configuration section, add the following environment variables by clicking Add environment variable and specifying the Name and Value for each as shown below.
 
-![awsbatch-4-2](https://github.com/user-attachments/assets/a2a58624-8f75-4345-a8f3-726912b664ca)
+<p align="center"><img src="https://github.com/user-attachments/assets/a2a58624-8f75-4345-a8f3-726912b664ca">
+</p>
 
 Add any additional configurations you need for your use case and click Next.
 
@@ -146,7 +155,9 @@ Add any additional configurations you need for your use case and click Next.
 
 Next the wizard will ask you to Create a job that will be submitted when the AWS Batch resources are created in the next step.
 
-![awsbatch-5](https://github.com/user-attachments/assets/a9125cd1-2e7a-4ad1-87a6-e4f7b789cae6)
+<p align="center"><img src="https://github.com/user-attachments/assets/539abaff-72b3-4220-a769-7bf80e013997">
+</p>
+
 
 #### Step 6. Review and create
 
@@ -160,8 +171,60 @@ Amazon EventBridge Event Bus is a serverless event bus that helps you receive, f
 
 In the Amazon EventBridge console under the Buses menu, choose Rule and click Create rule. The Create rule wizard will step you through the creation of the event rule.
 
+#### Step 1. Define rule detail
+Specify the Name and Description for the event rule. For Event bus choose default and choose Enable the rule on the selected event bus.
 
+<p align="center"><img src="https://github.com/user-attachments/assets/de6edb11-4cf9-4766-81aa-d252fd81d7bf">
+</p>
 
+Choose Rule with an event pattern as the Rule type then click Next.
+
+#### Step 2. Build event pattern
+To build the event pattern we will choose the Event source as AWS events or EventBridge partner events. Under Sample event we can choose AWS events as the Sample event type and choose Object Created to view the standard JSON event pattern we can customize by replacing example-bucket and example-key.
+
+```
+{
+  "detail-type": ["Object Created"],
+  "source": ["aws.s3"],
+  "detail": {
+    "bucket": {
+      "name": ["awsbatch-audio-transcription-us-east-1-123456789012-inbucket"]
+    },
+    "object": {
+      "key": [{
+        "prefix": "audio-input/"
+      }]
+    }
+  },
+  "account": ["123456789012"]
+}
+```
+
+<p align="center"><img src="https://github.com/user-attachments/assets/097ece3c-4d8e-441c-8af8-853ab4f71b4d">
+</p>
+
+Click Copy to copy the JSON to the clipboard. Paste it into the Event pattern dialog box in in the next section.
+
+Amazon EventBridge captures all Amazon S3 events and the Rule filters the events down to a specific bucket and folder that we have designated as the start of our pipeline. The Rule’s Event pattern is below.
+
+#### Step 3. Select target(s)
+Next, we select the target. Under Target types, choose AWS service. Choose Batch job queue as the target.
+
+![eventbridge-3](https://github.com/user-attachments/assets/95f141bb-7be4-4b87-8ace-587a517a5802)
+
+After selecting Batch job queue, you’ll be prompted to specify the Amazon Resource Names (ARNs) for the AWS Batch Job queue and the Job definition.
+
+![eventbridge-3-2](https://github.com/user-attachments/assets/90df6dc6-7e91-419f-8310-d81f6815263d)
+
+#### Step 4. Configure tags – optional
+
+You can configure tags to help you track costs of this event rule in cost explorer.
+
+#### Step 5. Review and create
+
+In the last step, you’ll be able to review the rule details, event pattern, targets, and tags. Once you’ve confirmed they’re correct, choose Create rule.
+
+Now that we’ve fully configured our event-driven audio transcription pipeline, we’re ready to test it.
 
 ### 
 
