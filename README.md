@@ -17,7 +17,7 @@ To deploy the solution using a cloud formation template by proceeding with the f
 
 ## Solution overview
 
-The solution architecture depicted in Figure 1 below shows the event-driven Whisper audio transcription pipeline solution with Amazon EventBridge and AWS Batch. Since AWS Batch creates a containerized compute environment, it requires a container image to be built and staged in Amazon Elastic Container Registry (Amazon ECR). In the AWS Batch job definition, we specify the container image, the Amazon Machine Image (AMI), and Amazon EC2 instance type.
+The solution architecture depicted in Figure 1 below shows the event-driven Whisper audio transcription pipeline solution with Amazon EventBridge and AWS Batch. Since AWS Batch creates a containerized compute environment, it requires a container image to be built and staged in Amazon Elastic Container Registry (Amazon ECR). In the AWS Batch job definition, we specify the container image and resource requirements for each job. The Amazon Machine Image (AMI) and Amazon EC2 instance type are configured in AWS Batch compute environment.
 
 ![hpc-whisper-batch-inferentia](https://github.com/user-attachments/assets/000e9019-2197-4836-a6a4-b1807c49c8d1)
 Figure 1. Event-driven audio transcription pipeline with Amazon EventBridge and AWS Batch
@@ -32,13 +32,13 @@ The docker image is built at design time and pushed to Amazon ECR. The docker im
 
 When an audio file is uploaded to Amazon S3 in the designated Bucket and folder, the PutEvent is captured by Amazon EventBridge, which triggers AWS Batch to add the file to the job queue.
 
-3.	AWS Batch launches compute environment to process queued jobs
+3.	AWS Batch launches compute resources to process queued jobs
 
-If there’s no compute environment active, AWS Batch will create a managed compute environment to process each job in the queue until the queue is empty. The compute environment is created using an Amazon EC2 Inf2 instance, an Amazon Machine Image (AMI) that includes the Neuron SDK libraries, and the container image uploaded to Amazon ECR in the first step. These configurations are defined in the AWS Batch job definition file.
+If there’s no active compute resource available, AWS Batch will automatically scale the managed compute environment to process each job in the queue until the queue is empty. Amazon EC2 Inf2 instances with an Amazon Machine Image (AMI) that includes the Neuron SDK libraries will start and pull the container image uploaded to Amazon ECR in the first step.
 
 4.	AWS Batch processes job and writes transcription to Amazon S3 output location
 
-The compute environment processes each audio file and writes a transcription file to an Amazon S3 output location. Once the job queue is empty, AWS Batch shuts down the environment.
+The compute environment processes each audio file and writes a transcription file to an Amazon S3 output location. Once the job queue is empty, AWS Batch scales down the environment.
 
 Next, we will demonstrate how to implement this solution.
 
@@ -96,6 +96,11 @@ We then tag the Docker image to match the repository URL.
 ```
 docker tag whisper:latest [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest
 ```
+Now, get the credential to access the ECR repositories:
+
+```
+aws ecr get-login-password | docker login --username AWS --password-stdin [your-account-id].dkr.ecr.[your-region].amazonaws.com
+```
 
 Finally, we push the image to the Amazon ECR repository.
 
@@ -123,7 +128,7 @@ minimum and maximum vCPUs. Under Allowed instance types, clear the default and s
 </p>
 
 
-The inf2.8xlarge instance has 32 vCPUs, so setting the maximum vCPU to a multiple of 32 number will determine the throughput capacity of the AWS Batch job queue—or how many compute environments AWS Batch will launch to transcribe multiple audio files concurrently. For our experiment we will choose to process 5 audio files concurrently, so we will set the maximum vCPUs at 160. Once 5 compute environments are launched, jobs will simply wait in queue until a compute environment becomes available.
+The inf2.8xlarge instance has 32 vCPUs, so setting the maximum vCPU to a multiple of 32 number will determine the throughput capacity of the AWS Batch job queue—or how many EC2 instances AWS Batch will launch to transcribe multiple audio files concurrently.  For our experiment we will choose to process 5 audio files concurrently, so we will set the maximum vCPUs at 160. Once 5 EC2 instances are launched, jobs will simply wait in queue until the EC2 instances become available.
 
 In the Network configuration, choose the Amazon Virtual Private Cloud (Amazon VPC) the compute environment will be deployed in. Select the Subnets and Security groups that will control access to the environment.
 
@@ -213,6 +218,14 @@ Next, we select the target. Under Target types, choose AWS service. Choose Batch
 <p align="center"><img src="https://github.com/user-attachments/assets/5daf63a2-83ef-4675-a8e9-d8dca688a386" \></p>
 
 After selecting Batch job queue, you’ll be prompted to specify the Amazon Resource Names (ARNs) for the AWS Batch Job queue and the Job definition.
+
+Under "Addiontal settings", choose  "Input transformer", then click "Configure input Transformer" button.
+
+<p align="center"><img src="https://github.com/user-attachments/assets/8931913d-9f60-446c-b850-66fc59f30e9d" \></p>
+
+Set up "Input path" and "Template" like below. This will pass the S3 bucket name and the S3 object key to the triggered Batch job. Click Confirm and go to the next step.
+
+<p align="center"><img src="https://github.com/user-attachments/assets/2153e60d-65a1-42cd-94c6-b884e1a9dc2c" \></p>
 
 #### Step 4. Configure tags – optional
 
