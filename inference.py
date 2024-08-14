@@ -34,7 +34,7 @@ model = WhisperForConditionalGeneration.from_pretrained(model_id, torchscript=Tr
 # if you don't need timestamps, just set this to False and get some better latency
 output_attentions=True
 
-batch_size=1
+batch_size=2
 # this is the maximum number of tokens the model will be able to decode
 # for the sample #3 we selected above, this is enough. If you're planning to 
 # process larger samples, you need to adjust it accordinly.
