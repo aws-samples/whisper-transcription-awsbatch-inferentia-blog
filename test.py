@@ -7,10 +7,10 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
 
 # please, start by selecting the desired model size
-suffix="tiny"
+#suffix="tiny"
 #suffix="small"
 #suffix="medium"
-#suffix="large-v3"
+suffix="large-v3"
 model_id=f"openai/whisper-{suffix}"
 
 # this will load the tokenizer + two copies of the model. cpu_model will be used later for results comparison
@@ -27,8 +27,6 @@ input_features = processor(sample["array"], sampling_rate=sample["sampling_rate"
 # output_attentions is required if you want to return word timestamps
 # if you don't need timestamps, just set this to False and get some better latency
 output_attentions=True
-
-batch_size=1
 # this is the maximum number of tokens the model will be able to decode
 # for the sample #3 we selected above, this is enough. If you're planning to 
 # process larger samples, you need to adjust it accordinly.
