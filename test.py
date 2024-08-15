@@ -24,6 +24,9 @@ dataset = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", spl
 sample = dataset[3]["audio"]
 input_features = processor(sample["array"], sampling_rate=sample["sampling_rate"], return_tensors="pt").input_features
 
+# batch size refers to the number of files processed in parallel
+# and should not exceed the number of cores on the Neuron device.
+batch_size=1
 # output_attentions is required if you want to return word timestamps
 # if you don't need timestamps, just set this to False and get some better latency
 output_attentions=True
