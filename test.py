@@ -33,7 +33,7 @@ output_attentions=True
 # this is the maximum number of tokens the model will be able to decode
 # for the sample #3 we selected above, this is enough. If you're planning to 
 # process larger samples, you need to adjust it accordinly.
-max_dec_len = 64
+max_dec_len = 448
 # num_mel_bins,d_model --> these parameters where copied from model.conf (found on HF repo)
 # we need them to correctly generate dummy inputs during compilation
 dim_enc=model.config.num_mel_bins
