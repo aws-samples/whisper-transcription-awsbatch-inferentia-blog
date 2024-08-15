@@ -10,6 +10,9 @@ RUN pip install -U --no-cache-dir -r requirements.txt
 # Exit container after the job is done
 RUN sed -i '/prevent docker exit/ {n; s/./# &/;}' /usr/local/bin/dockerd-entrypoint.py
 
-# For a quick test
-# COPY test.py test.py
-# CMD ["python3", "test.py"]
+# For a quick test and create model artifacts
+#COPY test.py test.py
+#CMD ["python3", "test.py"]
+
+# For inference
+CMD ["python3", "inference.py"]
