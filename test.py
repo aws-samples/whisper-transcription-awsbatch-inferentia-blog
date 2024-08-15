@@ -29,7 +29,7 @@ input_features = processor(sample["array"], sampling_rate=sample["sampling_rate"
 batch_size=1
 # output_attentions is required if you want to return word timestamps
 # if you don't need timestamps, just set this to False and get some better latency
-output_attentions=True
+output_attentions=False
 # this is the maximum number of tokens the model will be able to decode
 # for the sample #3 we selected above, this is enough. If you're planning to 
 # process larger samples, you need to adjust it accordinly.
