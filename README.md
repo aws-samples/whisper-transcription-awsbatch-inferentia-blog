@@ -108,6 +108,36 @@ Finally, we push the image to the Amazon ECR repository.
 docker push [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest
 ```
 
+### Export the model artifacts
+
+The Dockerfile stages the export-model.py script which will create the encoder and decoder files locally.
+
+You can attach to the container in a shell and run this manually.
+
+```
+docker run --device /dev/neuron0 -it whisper /bin/bash
+```
+
+Once attached to the container, run the script.
+
+```
+python3 export-model.py
+```
+
+You can exit the container and copy the files to the host
+
+```
+sudo docker cp whisper:/whisper_large-v3_1_neuron_encoder.pt .
+sudo docker cp whisper:/whisper_large-v3_1_448_neuron_decoder.pt .
+```
+
+Once these files are copied to the host you can then upload them to the S3 location you've designated for your model artifacts.
+
+```
+aws s3 cp ./whisper_large-v3_1_neuron_encoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012/model-artifacts/whisper_large-v3_1_neuron_encoder.pt
+aws s3 cp ./whisper_large-v3_1_448_neuron_decoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012/model-artifacts/whisper_large-v3_1_448_neuron_decoder.pt
+```
+
 ### Create AWS Batch job queue
 
 AWS Batch provides a Wizard (accessible from the menu in the upper left) that steps you through the configuration. You’ll create a compute environment for the inf2.8xlarge instance, a job queue, and a job definition where you will specify the repository URL for the Docker image that we built and uploaded to Amazon ECR.
