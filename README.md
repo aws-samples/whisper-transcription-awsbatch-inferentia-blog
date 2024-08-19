@@ -110,28 +110,38 @@ docker push [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest
 
 ### Export the model artifacts
 
-The Dockerfile stages the export-model.py script which will create the encoder and decoder files locally.
+The section describes how to run the export-model.py script to export the model files. The Dockerfile stages the export-model.py script which will create the encoder and decoder files locally.
 
-You can attach to the container in a shell and run this manually.
+#### Step 1. Launch an inf2.8xlarge EC2 instance and SSH in.
+
+Ensure that the instance IAM role has permissions to pull images from Amazon ECR.
+
+#### Step 2. Pull image from Amazon ECR.
+
+```
+docker pull [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest
+```
+
+#### Step 3. Run container and attach to shell
 
 ```
 docker run --device /dev/neuron0 -it whisper /bin/bash
 ```
 
-Once attached to the container, run the script.
+#### Step 4. Once attached to the container, run the export-model.py script.
 
 ```
 python3 export-model.py
 ```
 
-You can exit the container and copy the files to the host
+#### Step 5. Exit the container and copy the files to the host
 
 ```
 sudo docker cp whisper:/whisper_large-v3_1_neuron_encoder.pt .
 sudo docker cp whisper:/whisper_large-v3_1_448_neuron_decoder.pt .
 ```
 
-Once these files are copied to the host you can then upload them to the S3 location you've designated for your model artifacts.
+#### Step 6. Once these files are copied to the host you can then upload them to the S3 location you've designated for your model artifacts.
 
 ```
 aws s3 cp ./whisper_large-v3_1_neuron_encoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012/model-artifacts/whisper_large-v3_1_neuron_encoder.pt
