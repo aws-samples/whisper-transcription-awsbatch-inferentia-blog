@@ -88,8 +88,7 @@ Resources:
               VolumeSize: !Ref EBSBootSize
               VolumeType: 'gp3'
           UserData:
-            Fn::Base64:
-              !Sub |
+            Fn::Base64: !Sub |
                 MIME-Version: 1.0
                 Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
 
@@ -142,7 +141,7 @@ Resources:
                 # Run Neuron Monitor and pipe the output to Neuron Monitor CloudWatch
                 /opt/aws/neuron/bin/neuron-monitor -c /tmp/monitor.conf \
                 | /opt/aws/neuron/bin/neuron-monitor-cloudwatch.py \
-                --namespace neuron_monitor -d instance_id --region us-east-1 &
+                --namespace neuron_monitor -d instance_id --region ${AWS::Region} &
 
                 --==MYBOUNDARY==--
 
@@ -168,9 +167,7 @@ Resources:
         Subnets: !Ref SubnetIds
         Type: EC2
         Tags:
-          Name: !Sub
-            - Inference-demo-batch
-            - StackGuid: !Select [ 2, !Split [ "/", !Ref "AWS::StackId" ]]
+          Name: "Inference-demo-batch"
         Ec2Configuration:
           - ImageType: ECS_AL2023
             ImageIdOverride: ami-07979ad4c774a29ab
@@ -210,6 +207,7 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+      - arn:aws:iam::aws:policy/CloudWatchFullAccessV2
       Policies:
         - PolicyName: "CustomizedECSInstancePolicy"
           PolicyDocument:
@@ -219,11 +217,8 @@ Resources:
                 Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "cloudwatch:PutMetricData"
-                  - "cloudwatch:GetMetricData"
-                  - "cloudwatch:ListMetrics"
-                Resource: "*"
-
+                Resource:
+                  - 'arn:aws:s3:::*'
   ECSInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -340,7 +335,6 @@ Resources:
             reason: "Block Public Access settings are turned on for this demo"
     Properties:
       BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-logbucket
-      AccessControl: LogDeliveryWrite
       LifecycleConfiguration:
         Rules:
           - Id: Rule for log expiration
@@ -364,6 +358,19 @@ Resources:
           Key: Description
           Value: S3 Access Logs
 
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketLogs
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub arn:aws:s3:::${S3BucketLogs}/*
+  
 # Invoke a Batch job through EventBridge
   InferenceEventBridgeRole:
     Type: AWS::IAM::Role
