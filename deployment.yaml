@@ -280,9 +280,7 @@ Resources:
         SuppressedRules:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
           - S3_BUCKET_REPLICATION_ENABLED
-          - S3_BUCKET_VERSIONING_ENABLED
           - S3_BUCKET_NO_PUBLIC_RW_ACL
-          - S3_BUCKET_SSL_REQUESTS_ONLY
       cfn_nag:
         rules_to_suppress:
           - id: W51
@@ -314,9 +312,7 @@ Resources:
         SuppressedRules:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
           - S3_BUCKET_REPLICATION_ENABLED
-          - S3_BUCKET_VERSIONING_ENABLED
           - S3_BUCKET_NO_PUBLIC_RW_ACL
-          - S3_BUCKET_SSL_REQUESTS_ONLY
       cfn_nag:
         rules_to_suppress:
           - id: W51
@@ -345,9 +341,7 @@ Resources:
         SuppressedRules:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
           - S3_BUCKET_REPLICATION_ENABLED
-          - S3_BUCKET_VERSIONING_ENABLED
           - S3_BUCKET_NO_PUBLIC_RW_ACL
-          - S3_BUCKET_SSL_REQUESTS_ONLY
       cfn_nag:
         rules_to_suppress:
           - id: W35
