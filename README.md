@@ -10,7 +10,7 @@ You can use the AWS CloudFormation template to accelerate the deployment of this
 To deploy the solution using a cloud formation template by proceeding with the following steps:
 1.	Choose Launch Stack below to launch the solution in the us-east-1 Region:
    
-[<img src="https://github.com/user-attachments/assets/a7897b5a-8722-480d-b385-a9ba82c48cbd" width=auto height=auto />](https://aws-hpc-recipes.s3.amazonaws.com/main/recipes/batch/whisper_transcription_awsbatch_inferentia/assets/deployment.yaml)
+[<img src="https://github.com/user-attachments/assets/a7897b5a-8722-480d-b385-a9ba82c48cbd" width=auto height=auto />](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=awsbatch-inferentia&templateURL=https://aws-hpc-recipes.s3.amazonaws.com/main/recipes/batch/whisper_transcription_awsbatch_inferentia/assets/deployment.yaml)
 
 3.	For Stack name, enter a unique stack name.
 4.	Set the parameters.
