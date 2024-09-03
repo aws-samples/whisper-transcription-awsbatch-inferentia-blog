@@ -10,7 +10,7 @@ You can use the AWS CloudFormation template to accelerate the deployment of this
 To deploy the solution using a cloud formation template by proceeding with the following steps:
 1.	Choose Launch Stack below to launch the solution in the us-east-1 Region:
    
-![launchstack](https://github.com/user-attachments/assets/a7897b5a-8722-480d-b385-a9ba82c48cbd)
+[<img src="https://github.com/user-attachments/assets/a7897b5a-8722-480d-b385-a9ba82c48cbd" width=auto height=auto />](https://aws-hpc-recipes.s3.amazonaws.com/main/recipes/batch/whisper_transcription_awsbatch_inferentia/assets/deployment.yaml)
 
 3.	For Stack name, enter a unique stack name.
 4.	Set the parameters.
@@ -280,6 +280,10 @@ Now that we’ve fully configured our event-driven audio transcription pipeline,
 ## Test the solution
 
 You're ready to test the solution. Upload some audio files to your designated S3 input location and validate the transcriptions are being outputted to the S3 output location.
+
+## HPC Recipes
+
+This [solution](https://github.com/aws-samples/aws-hpc-recipes/tree/main/recipes/batch/whisper_transcription_awsbatch_inferentia) can be found on [HPC Recipes](https://github.com/aws-samples/aws-hpc-recipes).
 
 ## Security
 
