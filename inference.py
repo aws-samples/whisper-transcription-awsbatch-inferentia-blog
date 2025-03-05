@@ -1,6 +1,6 @@
 import os
 import sys
-os.environ['NEURON_RT_NUM_CORES']='2'
+os.environ['NEURON_RT_NUM_CORES']='1'
 import types
 import torch
 from datasets import load_dataset
@@ -16,6 +16,7 @@ output_file_prefix =  os.environ['OUTPUT_FILE_PREFIX']
 model_artifact_bucket_name = os.environ['MODEL_BUCKET_NAME']
 model_artifact_encoder_key = os.environ['MODEL_ENCODER_S3_KEY']
 model_artifact_decoder_key = os.environ['MODEL_DECODER_S3_KEY']
+model_artifact_proj_key = os.environ['MODEL_PROJ_S3_KEY']
 
 s3_client = boto3.client('s3')
 
@@ -29,6 +30,10 @@ model_id=f"openai/whisper-{suffix}"
 # this will load the tokenizer + two copies of the model.
 processor = WhisperProcessor.from_pretrained(model_id)
 model = WhisperForConditionalGeneration.from_pretrained(model_id, torchscript=True)
+
+# batch size refers to the number of files processed in parallel
+# and should not exceed the number of cores on the Neuron device.
+batch_size=1
 
 # output_attentions is required if you want to return word timestamps
 # if you don't need timestamps, just set this to False and get some better latency
@@ -97,12 +102,30 @@ if not hasattr(model.model.encoder, 'forward_'):
     model.model.encoder.forward_ = model.model.encoder.forward
 if not hasattr(model.model.decoder, 'forward_'): 
     model.model.decoder.forward_ = model.model.decoder.forward
+if not hasattr(model.proj_out, 'forward_'):
+    model.proj_out.forward_ = model.proj_out.forward
+
+def proj_out_f(self, inp):
+    pad_size = torch.as_tensor(self.max_length - inp.shape[1], device=inp.device)
+    # pad the input to max_dec_len
+    if inp.shape[1] > self.max_length:
+        raise Exception(f"The decoded sequence is not supported. Max: {self.max_length}")
+    x = F.pad(inp, (0,0,0,pad_size), "constant", processor.tokenizer.pad_token_id)
+
+    if hasattr(self, 'forward_neuron'):
+        out = self.forward_neuron(x)
+    else:
+        out = self.forward_(x)
+    # unpad the output before returning
+    out = out[:, :inp.shape[1], :]
+    return out
 
 model.model.encoder.forward = types.MethodType(enc_f, model.model.encoder)
 model.model.decoder.forward = types.MethodType(dec_f, model.model.decoder)
+model.proj_out.forward = types.MethodType(proj_out_f, model.proj_out)
 
 model.model.decoder.max_length = max_dec_len
-
+model.proj_out.max_length = max_dec_len
 
 # Trace Encoder
 import os
@@ -128,6 +151,17 @@ if not os.path.isfile(model_decoder_filename):
 else:
     model.model.decoder.forward_neuron = torch.jit.load(model_decoder_filename)
     
+# Trace Projection Output
+import torch
+import torch_neuronx
+
+s3_client.download_file(model_artifact_bucket_name, model_artifact_proj_key, model_artifact_proj_key.split("/")[-1])
+model_proj_filename=model_artifact_proj_key.split("/")[-1]
+if not os.path.isfile(model_proj_filename):
+    raise Exception("projection model artifact not found.")
+else:
+    model.proj_out.forward_neuron = torch.jit.load(model_proj_filename)
+
 # Inference
 import torchaudio
 

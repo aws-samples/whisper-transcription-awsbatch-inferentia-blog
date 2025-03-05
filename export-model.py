@@ -1,5 +1,5 @@
 import os
-os.environ['NEURON_RT_NUM_CORES']='2'
+os.environ['NEURON_RT_NUM_CORES']='1'
 import types
 import torch
 from datasets import load_dataset
@@ -89,16 +89,35 @@ def dec_f(self, input_ids, attention_mask=None, encoder_hidden_states=None, **kw
         out['cross_attentions'] = torch.stack([torch.mean(o[:, :, :input_ids.shape[1], :], axis=2, keepdim=True) for o in out['cross_attentions']])
     return BaseModelOutputWithPastAndCrossAttentions(**out)
 
+def proj_out_f(self, inp):
+    pad_size = torch.as_tensor(self.max_length - inp.shape[1], device=inp.device)
+    # pad the input to max_dec_len
+    if inp.shape[1] > self.max_length:
+        raise Exception(f"The decoded sequence is not supported. Max: {self.max_length}")
+    x = F.pad(inp, (0,0,0,pad_size), "constant", processor.tokenizer.pad_token_id)
+
+    if hasattr(self, 'forward_neuron'):
+        out = self.forward_neuron(x)
+    else:
+        out = self.forward_(x)
+    # unpad the output before returning
+    out = out[:, :inp.shape[1], :]
+    return out
+
 if not hasattr(model.model.encoder, 'forward_'): 
     model.model.encoder.forward_ = model.model.encoder.forward
 if not hasattr(model.model.decoder, 'forward_'): 
     model.model.decoder.forward_ = model.model.decoder.forward
+if not hasattr(model.proj_out, 'forward_'):
+    model.proj_out.forward_ = model.proj_out.forward
+
 
 model.model.encoder.forward = types.MethodType(enc_f, model.model.encoder)
 model.model.decoder.forward = types.MethodType(dec_f, model.model.decoder)
+model.proj_out.forward = types.MethodType(proj_out_f, model.proj_out)
 
 model.model.decoder.max_length = max_dec_len
-
+model.proj_out.max_length = max_dec_len
 
 # warmup model
 y1 = model.generate(input_features)
@@ -141,11 +160,33 @@ if not os.path.isfile(model_filename):
     model.model.decoder.forward_neuron = neuron_decoder
 else:
     model.model.decoder.forward_neuron = torch.jit.load(model_filename)
-    
+
+# Trace Projection Output
+import torch
+import torch_neuronx
+
+model_filename=f"whisper_{suffix}_{batch_size}_{max_dec_len}_neuron_proj.pt"
+if not os.path.isfile(model_filename):
+    inp = torch.zeros([1, max_dec_len, dim_dec], dtype=torch.float32)
+    if hasattr(model.proj_out, 'forward_neuron'): del model.proj_out.forward_neuron
+    neuron_decoder = torch_neuronx.trace(
+        model.proj_out,
+        inp,
+        compiler_args='--model-type=transformer --auto-cast=all --auto-cast-type=bf16',
+        compiler_workdir='./proj_out_dir',
+        inline_weights_to_neff=True)
+    neuron_decoder.save(model_filename)
+    model.proj_out.forward_neuron = neuron_decoder
+else:
+    model.proj_out.forward_neuron = torch.jit.load(model_filename)
+
+
 # Test
 
 # warmup inf2 model
 y1 = model.generate(input_features)
+
+torch.set_num_threads(1)
 
 import time
 t=time.time()

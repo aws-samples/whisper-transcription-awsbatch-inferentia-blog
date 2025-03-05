@@ -4,6 +4,22 @@ OpenAI's Whisper model is a highly accurate automatic speech recognition (ASR) m
 
 For customers seeking to host the Whisper model on AWS but do not need real-time or continuous online inference can optimize for cost by processing audio as a batch workload asynchronously using AWS Batch and by leveraging AWS’s custom silicon for inference, AWS Inferentia. AWS Batch is a fully managed service that enables efficient scheduling and execution of batch computing workloads on the AWS Cloud. AWS Inferentia is a custom-built machine learning inference chip designed to deliver exceptional price per performance.
 
+## Highlights of What’s New in Version v2.0.0
+
+### Performance Improvements
+
+1.1 Preloaded model files into container image to eliminate download time during execution
+
+1.2 Added projection layer optimization resulting in 30% performance improvement
+
+1.3 Reduced Batch job resource requirements and Neuron core number to enable 2 concurrent jobs per inf2 chip on the same instance
+
+### Additional Updates
+
+2.1 Updated to dynamically retrieve the latest ECS Neuron AMI for Batch compute environment provisioning
+
+2.2 Updated Dockerfile with new base image configuration
+
 ## Deploy the solution
 You can use the AWS CloudFormation template to accelerate the deployment of this solution. In the next section, we describe step-by-step how to implement this solution via the AWS Console.
 
@@ -12,8 +28,10 @@ To deploy the solution using a cloud formation template by proceeding with the f
    
 [<img src="https://github.com/user-attachments/assets/a7897b5a-8722-480d-b385-a9ba82c48cbd" width=auto height=auto />](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=awsbatch-inferentia&templateURL=https://aws-hpc-recipes.s3.amazonaws.com/main/recipes/batch/whisper_transcription_awsbatch_inferentia/assets/deployment.yaml)
 
-3.	For Stack name, enter a unique stack name.
-4.	Set the parameters.
+2.	For Stack name, enter a unique stack name.
+3.	Set the parameters.
+
+Alternatively, you can run the buildArch.sh script to deploy the infrastructure automatically to the default VPC.
 
 ## Solution overview
 
@@ -56,7 +74,7 @@ The AMI we will choose for our AWS Batch compute environment will be an Amazon L
 After cloning the GitHub repository, locate the Dockerfile. Notice that the referenced base image installs the AWS Neuron SDK for PyTorch 1.13.1 on AWS Inferentia.
 
 ```
-FROM public.ecr.aws/neuron/pytorch-inference-neuronx:1.13.1-neuronx-py310-sdk2.18.1-ubuntu20.04
+FROM public.ecr.aws/neuron/pytorch-inference-neuronx:1.13.1-neuronx-py310-sdk2.20.2-ubuntu20.04
 
 RUN mkdir -p /app
 WORKDIR /app
@@ -69,7 +87,18 @@ RUN pip install -U --no-cache-dir -r requirements.txt
 # Exit container after the job is done
 RUN sed -i '/prevent docker exit/ {n; s/./# &/;}' /usr/local/bin/dockerd-entrypoint.py
 
+# Ensure the model is cached during the image build rather than during runtime
+RUN python3 -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; \
+    model_id='openai/whisper-large-v3'; \
+    WhisperProcessor.from_pretrained(model_id); \
+    WhisperForConditionalGeneration.from_pretrained(model_id, torchscript=True)"
+
+# Stage script to create model artifacts
+COPY export-model.py export-model.py
+
+# For inference
 CMD ["python3", "inference.py"]
+
 ```
 
 We will build the image using the following command.
@@ -139,16 +168,18 @@ python3 export-model.py
 ```
 sudo docker cp whisper:/whisper_large-v3_1_neuron_encoder.pt .
 sudo docker cp whisper:/whisper_large-v3_1_448_neuron_decoder.pt .
+sudo docker cp whisper:/whisper_large-v3_1_448_neuron_proj.pt .
 ```
 
 #### Step 6. Once these files are copied to the host you can then upload them to the S3 location you've designated for your model artifacts.
 
 ```
-aws s3 cp ./whisper_large-v3_1_neuron_encoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012/model-artifacts/whisper_large-v3_1_neuron_encoder.pt
-aws s3 cp ./whisper_large-v3_1_448_neuron_decoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012/model-artifacts/whisper_large-v3_1_448_neuron_decoder.pt
+aws s3 cp ./whisper_large-v3_1_neuron_encoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012-inbucket/model-artifacts/whisper_large-v3_1_neuron_encoder.pt
+aws s3 cp ./whisper_large-v3_1_448_neuron_decoder.pt s3://awsbatch-audio-transcription-us-east-1-123456789012-inbucket/model-artifacts/whisper_large-v3_1_448_neuron_decoder.pt
+aws s3 cp ./whisper_large-v3_1_448_neuron_proj.pt s3://awsbatch-audio-transcription-us-east-1-123456789012-inbucket/model-artifacts/whisper_large-v3_1_448_neuron_proj.pt
 ```
 
-### Create AWS Batch job queue
+### Create AWS Batch job queue -- You can skip the following steps if you already deployed the solution with the AWS CloudFormation template
 
 AWS Batch provides a Wizard (accessible from the menu in the upper left) that steps you through the configuration. You’ll create a compute environment for the inf2.8xlarge instance, a job queue, and a job definition where you will specify the repository URL for the Docker image that we built and uploaded to Amazon ECR.
 
@@ -292,4 +323,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-

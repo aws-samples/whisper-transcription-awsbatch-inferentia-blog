@@ -21,12 +21,13 @@
 
 project=awsbatch-audio-transcription
 
-##### Gather necessary information and save in a file for later use #####
-envFileName=~/envVars-$AWS_REGION
-
 # Get the AWS account and region information dynamically, or specify region with the environment variable.
 echo "Deploying to ${AWS_REGION:=$(TOKEN=`curl --silent  -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`; \
  curl --silent -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)} region"
+
+##### Gather necessary information and save in a file for later use #####
+envFileName=~/envVars-$AWS_REGION
+
 echo "export AWS_REGION=${AWS_REGION}" > $envFileName
 
 AWS_ACCOUNT=$(aws sts get-caller-identity --query "Account" --output text)
