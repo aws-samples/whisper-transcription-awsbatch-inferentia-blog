@@ -154,7 +154,7 @@ docker pull [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest
 #### Step 3. Run container and attach to shell
 
 ```
-docker run --device /dev/neuron0 -it whisper /bin/bash
+docker run --device /dev/neuron0 -it [your-account-id].dkr.ecr.[your-region].amazonaws.com/whisper:latest /bin/bash
 ```
 
 #### Step 4. Once attached to the container, run the export-model.py script.
