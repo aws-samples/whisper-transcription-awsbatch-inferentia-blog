@@ -166,9 +166,13 @@ python3 export-model.py
 #### Step 5. Exit the container and copy the files to the host
 
 ```
-sudo docker cp whisper:/whisper_large-v3_1_neuron_encoder.pt .
-sudo docker cp whisper:/whisper_large-v3_1_448_neuron_decoder.pt .
-sudo docker cp whisper:/whisper_large-v3_1_448_neuron_proj.pt .
+# Obtain container ID
+docker ps -a
+
+# Model artifacts retrieval
+sudo docker cp <container_id>:/app/whisper_large-v3_1_neuron_encoder.pt .
+sudo docker cp <container_id>:/app/whisper_large-v3_1_448_neuron_decoder.pt .
+sudo docker cp <container_id>:/app/whisper_large-v3_1_448_neuron_proj.pt .
 ```
 
 #### Step 6. Once these files are copied to the host you can then upload them to the S3 location you've designated for your model artifacts.
