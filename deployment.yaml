@@ -287,10 +287,6 @@ Resources:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
           - S3_BUCKET_REPLICATION_ENABLED
           - S3_BUCKET_NO_PUBLIC_RW_ACL
-      cfn_nag:
-        rules_to_suppress:
-          - id: W51
-            reason: "Block Public Access settings are turned on for this demo"
     Properties:
       BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-inbucket
       LoggingConfiguration:
@@ -310,6 +306,25 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+
+  InputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref InputBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${InputBucket}/*
+              - !Sub arn:aws:s3:::${InputBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
   OutputBucket:
     Type: 'AWS::S3::Bucket'
     Metadata:
@@ -319,10 +334,6 @@ Resources:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
           - S3_BUCKET_REPLICATION_ENABLED
           - S3_BUCKET_NO_PUBLIC_RW_ACL
-      cfn_nag:
-        rules_to_suppress:
-          - id: W51
-            reason: "Block Public Access settings are turned on for this demo"
     Properties:
       BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-outbucket
       LoggingConfiguration:
@@ -339,6 +350,25 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+
+  OutputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref OutputBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${OutputBucket}/*
+              - !Sub arn:aws:s3:::${OutputBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
   S3BucketLogs:
     Type: AWS::S3::Bucket
     Metadata:
@@ -352,8 +382,6 @@ Resources:
         rules_to_suppress:
           - id: W35
             reason: "This the S3 bucket to store the access logs"
-          - id: W51
-            reason: "Block Public Access settings are turned on for this demo"
     Properties:
       BucketName: !Sub ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-logbucket
       LifecycleConfiguration:
@@ -385,24 +413,30 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
 
-  BucketPolicy:
+  S3BucketLogsPolicy:
     Type: AWS::S3::BucketPolicy
-    Metadata:
-      Comment: The suppressed guard rules are not vital for this sample but should be considered for production infrastructure
-      guard:
-        SuppressedRules:
-          - S3_BUCKET_SSL_REQUESTS_ONLY
     Properties:
       Bucket: !Ref S3BucketLogs
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3BucketLogs}/*
+              - !Sub arn:aws:s3:::${S3BucketLogs}
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: AllowLoggingService
+            Effect: Allow
             Principal:
               Service: logging.s3.amazonaws.com
             Action: s3:PutObject
             Resource: !Sub arn:aws:s3:::${S3BucketLogs}/*
-  
+   
 # Invoke a Batch job through EventBridge
   InferenceEventBridgeRole:
     Type: AWS::IAM::Role
@@ -415,6 +449,7 @@ Resources:
               Service: events.amazonaws.com
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSBatchServiceEventTargetRole
+
   BatchJobEventRule:
     Type: AWS::Events::Rule
     Properties:
