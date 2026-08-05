@@ -320,6 +320,16 @@ You're ready to test the solution. Upload some audio files to your designated S3
 
 This [solution](https://github.com/aws-samples/aws-hpc-recipes/tree/main/recipes/batch/whisper_transcription_awsbatch_inferentia) can be found on [HPC Recipes](https://github.com/aws-samples/aws-hpc-recipes).
 
+## Related solutions
+
+### Cost-effective multilingual audio transcription at scale with Parakeet-TDT and AWS Batch
+
+[Blog post](https://aws.amazon.com/blogs/machine-learning/cost-effective-multilingual-audio-transcription-at-scale-with-parakeet-tdt-and-aws-batch/) | [GitHub repository](https://github.com/aws-samples/sample-parakeet-transcription-awsbatch-nvidia-blog)
+
+This companion solution applies the same event-driven AWS Batch pattern to NVIDIA's Parakeet-TDT-0.6B-v3, an open-source multilingual ASR model that transcribes 25 European languages with automatic language detection. Instead of AWS Inferentia, it runs on NVIDIA GPU instances (for example, g6.xlarge) and uses buffered streaming inference to handle variable-length audio up to three hours without exhausting GPU memory. The architecture is otherwise familiar: Amazon S3 uploads trigger Amazon EventBridge, which submits jobs to an AWS Batch queue running a container from Amazon ECR, with transcriptions written back to S3.
+
+Reported benchmarks on g6.xlarge are 0.49 seconds of processing per minute of audio, at roughly $0.00011 per audio minute On-Demand and $0.00005 per audio minute using Amazon EC2 Spot Instances. Consider this solution if you need multilingual transcription or GPU-based inference; use the Whisper on Inferentia solution in this repository if you want Whisper accuracy with AWS custom silicon price performance.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
